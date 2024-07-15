@@ -1,0 +1,342 @@
+# Default values for ray-cluster.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# The KubeRay community welcomes PRs to expose additional configuration
+# in this Helm chart.
+
+image:
+  repository: us-docker.pkg.dev/supercomputer-testing/mantaray-megatron/megatron-core07r-nvpy2403
+  tag: latest-ray
+  pullPolicy: Always
+
+nameOverride: "kuberay"
+fullnameOverride: ""
+
+imagePullSecrets: []
+  # - name: an-existing-secret
+
+
+# common defined values shared between the head and worker
+common:
+  # containerEnv specifies environment variables for the Ray head and worker containers.
+  # Follows standard K8s container env schema.
+  containerEnv: {}
+  #  - name: BLAH
+  #    value: VAL
+head:
+  # rayVersion determines the autoscaler's image version.
+  # It should match the Ray version in the image of the containers.
+  # rayVersion: 2.9.0
+  # If enableInTreeAutoscaling is true, the autoscaler sidecar will be added to the Ray head pod.
+  # Ray autoscaler integration is supported only for Ray versions >= 1.11.0
+  # Ray autoscaler integration is Beta with KubeRay >= 0.3.0 and Ray >= 2.0.0.
+  # enableInTreeAutoscaling: true
+  # autoscalerOptions is an OPTIONAL field specifying configuration overrides for the Ray autoscaler.
+  # The example configuration shown below represents the DEFAULT values.
+  # autoscalerOptions:
+    # upscalingMode: Default
+    # idleTimeoutSeconds is the number of seconds to wait before scaling down a worker pod which is not using Ray resources.
+    # idleTimeoutSeconds: 60
+    # imagePullPolicy optionally overrides the autoscaler container's default image pull policy (IfNotPresent).
+    # imagePullPolicy: IfNotPresent
+    # Optionally specify the autoscaler container's securityContext.
+    # securityContext: {}
+    # env: []
+    # envFrom: []
+    # resources specifies optional resource request and limit overrides for the autoscaler container.
+    # For large Ray clusters, we recommend monitoring container resource usage to determine if overriding the defaults is required.
+    # resources:
+    #   limits:
+    #     cpu: "500m"
+    #     memory: "512Mi"
+    #   requests:
+    #     cpu: "500m"
+    #     memory: "512Mi"
+  labels: {}
+  # Note: From KubeRay v0.6.0, users need to create the ServiceAccount by themselves if they specify the `serviceAccountName`
+  # in the headGroupSpec. See https://github.com/ray-project/kuberay/pull/1128 for more details.
+  serviceAccountName: ""
+  rayStartParams:
+    dashboard-host: '0.0.0.0'
+  # containerEnv specifies environment variables for the Ray container,
+  # Follows standard K8s container env schema.
+  containerEnv: []
+  # - name: EXAMPLE_ENV
+  #   value: "1"
+  envFrom: []
+    # - secretRef:
+    #     name: my-env-secret
+  # ports optionally allows specifying ports for the Ray container.
+  # ports: []
+  # resource requests and limits for the Ray head container.
+  # Modify as needed for your application.
+  # Note that the resources in this example are much too small for production;
+  # we don't recommend allocating less than 8G memory for a Ray pod in production.
+  # Ray pods should be sized to take up entire K8s nodes when possible.
+  # Always set CPU and memory limits for Ray pods.
+  # It is usually best to set requests equal to limits.
+  # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+  # for further guidance.
+  resources:
+    limits:
+      cpu: "1"
+      # To avoid out-of-memory issues, never allocate less than 2G memory for the Ray head.
+      memory: "2G"
+    requests:
+      cpu: "1"
+      memory: "2G"
+  annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Ray container security context.
+  securityContext: {}
+  # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+  # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+  volumes:
+    - name: log-volume
+      emptyDir: {}
+  volumeMounts:
+    - mountPath: /tmp/ray
+      name: log-volume
+  # sidecarContainers specifies additional containers to attach to the Ray pod.
+  # Follows standard K8s container spec.
+  sidecarContainers: []
+  # See docs/guidance/pod-command.md for more details about how to specify
+  # container command for head Pod.
+  command:
+    - /bin/bash
+    - -c
+    - |
+
+      # workaround for torch inductor backend to work
+      ldconfig /usr/local/nvidia/lib64/
+      echo "Added /usr/local/nvidia/lib64/ to ldconfig:"
+      ldconfig -p | grep libcuda | sed 's/^/  /'
+
+      export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:$LD_LIBRARY_PATH";
+      ports_arr=(
+        --node-manager-port=4202
+        --object-manager-port=4203
+        --runtime-env-agent-port=4204
+        --dashboard-agent-grpc-port=4205
+        --dashboard-agent-listen-port=4206
+        --metrics-export-port=4207
+      )
+      apt-get install -y sudo;   # TODO: add to docker build
+      ray start --block --address="10.0.0.13:6379" "${ports_arr[@]}" --resources='{"mig-crankshaw-mantaray-alloc1": 1.0}'
+  args: []
+  # Optional, for the user to provide any additional fields to the service.
+  # See https://pkg.go.dev/k8s.io/Kubernetes/pkg/api/v1#Service
+  headService: {}
+    # metadata:
+    #   annotations:
+    #     prometheus.io/scrape: "true"
+
+
+worker:
+  # If you want to disable the default workergroup
+  # uncomment the line below
+  # disabled: true
+  groupName: workergroup
+  replicas: 2
+  minReplicas: 2
+  maxReplicas: 8
+  labels: {}
+  serviceAccountName: ""
+  rayStartParams: {}
+  # containerEnv specifies environment variables for the Ray container,
+  # Follows standard K8s container env schema.
+  containerEnv: []
+  - name: LD_LIBRARY_PATH
+    value: "/var/lib/tcpxo/lib64:$LD_LIBRARY_PATH"
+  envFrom: []
+    # - secretRef:
+    #     name: my-env-secret
+  # ports optionally allows specifying ports for the Ray container.
+  # ports: []
+  # resource requests and limits for the Ray head container.
+  # Modify as needed for your application.
+  # Note that the resources in this example are much too small for production;
+  # we don't recommend allocating less than 8G memory for a Ray pod in production.
+  # Ray pods should be sized to take up entire K8s nodes when possible.
+  # Always set CPU and memory limits for Ray pods.
+  # It is usually best to set requests equal to limits.
+  # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+  # for further guidance.
+  resources:
+    limits:
+      nvidia.com/gpu: 8
+  annotations: {}
+  nodeSelector: {}
+  tolerations:
+    - operator: "Exists"
+      key: nvidia.com/gpu
+    - operator: "Exists"
+      key: cloud.google.com/impending-node-termination
+  affinity: {}
+  # Ray container security context.
+  securityContext:
+        privileged: true
+  # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+  # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+  volumes:
+    - name: log-volume
+      emptyDir: {}
+    - name: shared-memory
+      emptyDir:
+        medium: "Memory"
+        sizeLimit: 250Gi
+    - name: ray-tmp
+      emptyDir:
+        medium: "Memory"
+    # - name: fluentbit-config-volume
+    #   configMap:
+    #     name: "crankshaw-mantaray-alloc1-fluentbit-config"
+    # GKE gpu_installer driver install location
+    - name: nvidia-install-dir-host
+      hostPath:
+        path: /home/kubernetes/bin/nvidia
+    - name: tcpx-nccl-plugin-volume
+      emptyDir: {}
+    - name: tcpxo-nccl-plugin-volume
+      emptyDir: {}
+    - name: fastrak-nccl-plugin-volume
+      emptyDir: {}
+
+    - name: dmabuf
+      hostPath:
+        path: /dev/dmabuf_import_helper
+        type: CharDevice
+
+    - name: tcpx-socket
+      emptyDir:
+        medium: "Memory"
+  volumeMounts:
+    - mountPath: /tmp/ray
+      name: log-volume
+    - name: shared-memory
+      mountPath: /dev/shm
+    - name: ray-tmp
+      mountPath: /tmp/ray
+
+    - name: nvidia-install-dir-host
+      mountPath: /usr/local/nvidia
+
+
+    - name: tcpx-nccl-plugin-volume
+      mountPath: /var/lib/tcpx
+    - name: tcpxo-nccl-plugin-volume
+      mountPath: /var/lib/tcpxo
+    - name: fastrak-nccl-plugin-volume
+      mountPath: /var/lib/fastrak
+
+
+    - name: dmabuf
+      mountPath: /dev/dmabuf_import_helper
+
+  initContainers:
+      - name: nccl-plugin-installer
+        imagePullPolicy: Always
+        image: "us-docker.pkg.dev/kernel-net-team/gpudirect-tcpx/nccl-plugin-gpudirecttcpx-pre-test-cuda12.2:cl_631269254"
+        volumeMounts:
+        # Some of these may be unused based on NCCL plugin version
+        - name: tcpx-nccl-plugin-volume
+          mountPath: /var/lib/tcpx
+        - name: tcpxo-nccl-plugin-volume
+          mountPath: /var/lib/tcpxo
+        - name: fastrak-nccl-plugin-volume
+          mountPath: /var/lib/fastrak
+        args: ['install', '--install-nccl']
+  # sidecarContainers specifies additional containers to attach to the Ray pod.
+  # Follows standard K8s container spec.
+  sidecarContainers:
+    - name: "rxdm-sidecar"
+      image: us-docker.pkg.dev/kernel-net-team/fts-dev/fts_rxdm:v1.0.7-dev
+      imagePullPolicy: Always
+      #restartPolicy: OnFailure
+      securityContext:
+        privileged: true
+      volumeMounts:
+      - name: tcpx-socket
+        mountPath: /run/tcpx
+
+      - name: dmabuf
+        mountPath: /dev/dmabuf_import_helper
+
+      - name: nvidia-install-dir-host
+        mountPath: "/usr/local/nvidia"
+      env:
+      - name: LD_LIBRARY_PATH
+        value: /usr/local/nvidia/lib64
+
+      args: ['--num_hops=2', '--num_nics=8', '--uid=', '--alsologtostderr']
+  # See docs/guidance/pod-command.md for more details about how to specify
+  # container command for worker Pod.
+  command: []
+  args: []
+
+# # The map's key is used as the groupName.
+# # For example, key:small-group in the map below
+# # will be used as the groupName
+# additionalWorkerGroups:
+#   smallGroup:
+#     # Disabled by default
+#     disabled: true
+#     replicas: 0
+#     minReplicas: 0
+#     maxReplicas: 3
+#     labels: {}
+#     serviceAccountName: ""
+#     rayStartParams: {}
+#     # containerEnv specifies environment variables for the Ray container,
+#     # Follows standard K8s container env schema.
+#     containerEnv: []
+#       # - name: EXAMPLE_ENV
+#       #   value: "1"
+#     envFrom: []
+#         # - secretRef:
+#         #     name: my-env-secret
+#     # ports optionally allows specifying ports for the Ray container.
+#     # ports: []
+#     # resource requests and limits for the Ray head container.
+#     # Modify as needed for your application.
+#     # Note that the resources in this example are much too small for production;
+#     # we don't recommend allocating less than 8G memory for a Ray pod in production.
+#     # Ray pods should be sized to take up entire K8s nodes when possible.
+#     # Always set CPU and memory limits for Ray pods.
+#     # It is usually best to set requests equal to limits.
+#     # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+#     # for further guidance.
+#     resources:
+#       limits:
+#         cpu: 1
+#         memory: "1G"
+#       requests:
+#         cpu: 1
+#         memory: "1G"
+#     annotations: {}
+#     nodeSelector: {}
+#     tolerations: []
+#     affinity: {}
+#     # Ray container security context.
+#     securityContext: {}
+#     # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+#     # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+#     volumes:
+#       - name: log-volume
+#         emptyDir: {}
+#     volumeMounts:
+#       - mountPath: /tmp/ray
+#         name: log-volume
+#     sidecarContainers: []
+#     # See docs/guidance/pod-command.md for more details about how to specify
+#     # container command for worker Pod.
+#     command: []
+#     args: []
+
+# Configuration for Head's Kubernetes Service
+service:
+  # This is optional, and the default is ClusterIP.
+  type: ClusterIP
