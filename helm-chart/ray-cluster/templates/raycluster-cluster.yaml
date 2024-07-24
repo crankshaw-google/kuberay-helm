@@ -127,6 +127,8 @@ spec:
       spec:
         schedulingGates:
         - name: "gke.io/topology-aware-auto-scheduling"
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
         imagePullSecrets: {{- toYaml $.Values.imagePullSecrets | nindent 10 }}
         {{- if $values.serviceAccountName }}
         serviceAccountName: {{ $values.serviceAccountName }}
@@ -188,6 +190,7 @@ spec:
         labels: {{ include "ray-cluster.labels" $ | nindent 10 }}
         {{- end }} 
 
+
   {{- end }}
   {{- end }}
   {{- if ne (.Values.worker.disabled | default false) true }}
@@ -214,6 +217,8 @@ spec:
       spec:
         schedulingGates:
         - name: "gke.io/topology-aware-auto-scheduling"
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
         imagePullSecrets: {{- toYaml .Values.imagePullSecrets | nindent 10 }}
         {{- if .Values.worker.serviceAccountName }}
         serviceAccountName: {{ .Values.worker.serviceAccountName }}

@@ -6,8 +6,8 @@
 # in this Helm chart.
 
 image:
-  repository: us-docker.pkg.dev/supercomputer-testing/mantaray-megatron/megatron-core07r-nvpy2403
-  tag: latest-ray
+  repository: us-docker.pkg.dev/supercomputer-testing/mantaray-nemo/nemo-24.0
+  tag: 24.05-ray
   pullPolicy: Always
 
 nameOverride: "kuberay"
@@ -15,7 +15,6 @@ fullnameOverride: ""
 
 imagePullSecrets: []
   # - name: an-existing-secret
-
 
 # common defined values shared between the head and worker
 common:
@@ -80,12 +79,12 @@ head:
   # for further guidance.
   resources:
     limits:
-      cpu: "1"
+      cpu: "8"
       # To avoid out-of-memory issues, never allocate less than 2G memory for the Ray head.
-      memory: "2G"
+      memory: "8G"
     requests:
-      cpu: "1"
-      memory: "2G"
+      cpu: "8"
+      memory: "8G"
   annotations: {}
   nodeSelector: {}
   tolerations: []

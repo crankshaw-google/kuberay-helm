@@ -1,0 +1,515 @@
+# Default values for ray-cluster.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# The KubeRay community welcomes PRs to expose additional configuration
+# in this Helm chart.
+
+image:
+  repository: us-docker.pkg.dev/supercomputer-testing/mantaray-nemo/nemo-24.05
+  tag: 24.05-ray
+  pullPolicy: IfNotPresent
+
+nameOverride: "kuberay"
+fullnameOverride: ""
+
+imagePullSecrets: []
+  # - name: an-existing-secret
+
+# common defined values shared between the head and worker
+common:
+  # containerEnv specifies environment variables for the Ray head and worker containers.
+  # Follows standard K8s container env schema.
+  containerEnv: {}
+  #  - name: BLAH
+  #    value: VAL
+head:
+  # rayVersion determines the autoscaler's image version.
+  # It should match the Ray version in the image of the containers.
+  # rayVersion: 2.9.0
+  # If enableInTreeAutoscaling is true, the autoscaler sidecar will be added to the Ray head pod.
+  # Ray autoscaler integration is supported only for Ray versions >= 1.11.0
+  # Ray autoscaler integration is Beta with KubeRay >= 0.3.0 and Ray >= 2.0.0.
+  enableInTreeAutoscaling: false
+  # autoscalerOptions is an OPTIONAL field specifying configuration overrides for the Ray autoscaler.
+  # The example configuration shown below represents the DEFAULT values.
+  autoscalerOptions:
+    upscalingMode: Default
+    # idleTimeoutSeconds is the number of seconds to wait before scaling down a worker pod which is not using Ray resources.
+    idleTimeoutSeconds: 60
+    # imagePullPolicy optionally overrides the autoscaler container's default image pull policy (IfNotPresent).
+    # imagePullPolicy: IfNotPresent
+    # Optionally specify the autoscaler container's securityContext.
+    # securityContext: {}
+    # env: []
+    # envFrom: []
+    # resources specifies optional resource request and limit overrides for the autoscaler container.
+    # For large Ray clusters, we recommend monitoring container resource usage to determine if overriding the defaults is required.
+    # resources:
+    #   limits:
+    #     cpu: "500m"
+    #     memory: "512Mi"
+    #   requests:
+    #     cpu: "500m"
+    #     memory: "512Mi"
+  labels: {}
+  # Note: From KubeRay v0.6.0, users need to create the ServiceAccount by themselves if they specify the `serviceAccountName`
+  # in the headGroupSpec. See https://github.com/ray-project/kuberay/pull/1128 for more details.
+  serviceAccountName: ""
+  rayStartParams:
+    dashboard-host: '0.0.0.0'
+    # node-manager-port: 4202
+    # object-manager-port: 4203
+    # runtime-env-agent-port: 4204
+    # dashboard-agent-grpc-port: 4205
+    # dashboard-agent-listen-port: 4206
+    # metrics-export-port: 4207
+  # containerEnv specifies environment variables for the Ray container,
+  # Follows standard K8s container env schema.
+  containerEnv: []
+  # - name: EXAMPLE_ENV
+  #   value: "1"
+  envFrom: []
+    # - secretRef:
+    #     name: my-env-secret
+  # ports optionally allows specifying ports for the Ray container.
+  # ports: []
+  # resource requests and limits for the Ray head container.
+  # Modify as needed for your application.
+  # Note that the resources in this example are much too small for production;
+  # we don't recommend allocating less than 8G memory for a Ray pod in production.
+  # Ray pods should be sized to take up entire K8s nodes when possible.
+  # Always set CPU and memory limits for Ray pods.
+  # It is usually best to set requests equal to limits.
+  # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+  # for further guidance.
+  resources:
+    limits:
+      cpu: "8"
+      # To avoid out-of-memory issues, never allocate less than 2G memory for the Ray head.
+      memory: "12G"
+    requests:
+      cpu: "8"
+      memory: "12G"
+  annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Ray container security context.
+  securityContext: {}
+  # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+  # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+  volumes:
+    - name: log-volume
+      emptyDir: {}
+  volumeMounts:
+    - mountPath: /tmp/ray
+      name: log-volume
+  # sidecarContainers specifies additional containers to attach to the Ray pod.
+  # Follows standard K8s container spec.
+  sidecarContainers: []
+  # See docs/guidance/pod-command.md for more details about how to specify
+  # container command for head Pod.
+  command:
+    - "ldconfig /usr/local/nvidia/lib64/ &&"
+    - "ldconfig -p | grep libcuda | sed 's/^/  /' &&"
+    - "export LD_LIBRARY_PATH=\"/var/lib/tcpxo/lib64:$LD_LIBRARY_PATH\" && "
+    - "apt-get install -y sudo"
+  args: []
+  # Optional, for the user to provide any additional fields to the service.
+  # See https://pkg.go.dev/k8s.io/Kubernetes/pkg/api/v1#Service
+  headService: {}
+    # metadata:
+    #   annotations:
+    #     prometheus.io/scrape: "true"
+
+
+worker:
+  # If you want to disable the default workergroup
+  # uncomment the line below
+  disabled: true
+
+# The map's key is used as the groupName.
+# For example, key:small-group in the map below
+# will be used as the groupName
+additionalWorkerGroups:
+  worker-grp-0:
+    disabled: false
+    replicas: 2
+    minReplicas: 2
+    maxReplicas: 2
+    labels: {}
+    serviceAccountName: ""
+    rayStartParams:
+      resources: '"{\"$RAY_GROUP\": 1, \"group_index-$RAY_GROUP_INDEX\": 1}"'
+    # containerEnv specifies environment variables for the Ray container,
+    # Follows standard K8s container env schema.
+    containerEnv:
+      - name: RAY_GROUP
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.labels['ray_group']
+            # fieldPath: metadata.labels[\'ray.io\/group\']
+      - name: RAY_GROUP_INDEX
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.labels['ray_group_index']
+
+      - name: NCCL_FASTRAK_CTRL_DEV
+        value: "eth0"
+      - name: NCCL_FASTRAK_IFNAME
+        value: "eth1,eth2,eth3,eth4,eth5,eth6,eth7,eth8"
+      - name: NCCL_SOCKET_IFNAME
+        value: "eth0"
+      - name: NCCL_CROSS_NIC
+        value: "0"
+      - name: NCCL_ALGO
+        value: "Ring,Tree"
+      - name: NCCL_PROTO
+        value: "Simple"
+      - name: NCCL_MIN_NCHANNELS
+        value: "4"
+      - name: NCCL_TUNER_PLUGIN
+        value: "libnccl- name:tuner.so"
+      - name: NCCL_TUNER_CONFIG_PATH
+        value: "/usr/local/tcpxo/lib64/a3plus_tuner_config.textproto"
+      - name: NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE
+        value: "/usr/local/tcpxo/lib64/a3plus_guest_config.textproto"
+      - name: NCCL_DYNAMIC_CHUNK_SIZE
+        value: "524288"
+      - name: NCCL_P2P_NET_CHUNKSIZE
+        value: "524288"
+      - name: NCCL_P2P_PCI_CHUNKSIZE
+        value: "524288"
+      - name: NCCL_P2P_NVL_CHUNKSIZE
+        value: "1048576"
+      - name: NCCL_FASTRAK_NUM_FLOWS
+        value: "2"
+      - name: NCCL_FASTRAK_USE_SNAP
+        value: "1"
+      - name: NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS
+        value: "600000"
+      - name: NCCL_FASTRAK_ENABLE_CONTROL_CHANNEL
+        value: "0"
+      - name: NCCL_BUFFSIZE
+        value: "8388608"
+      - name: CUDA_VISIBLE_DEVICES
+        value: "0,1,2,3,4,5,6,7"
+      - name: NCCL_NET_GDR_LEVEL
+        value: "PIX"
+      - name: NCCL_FASTRAK_ENABLE_HOTPATH_LOGGING
+        value: "0"
+      - name: NCCL_FASTRAK_USE_LLCM
+        value: "1"
+      - name: NCCL_NVLS_ENABLE
+        value: "0"
+      - name: "RAY_worker_register_timeout_seconds"
+        value: "120"
+
+    envFrom: []
+        # - secretRef:
+        #     name: my-env-secret
+    # ports optionally allows specifying ports for the Ray container.
+    # ports: []
+    # resource requests and limits for the Ray head container.
+    # Modify as needed for your application.
+    # Note that the resources in this example are much too small for production;
+    # we don't recommend allocating less than 8G memory for a Ray pod in production.
+    # Ray pods should be sized to take up entire K8s nodes when possible.
+    # Always set CPU and memory limits for Ray pods.
+    # It is usually best to set requests equal to limits.
+    # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+    # for further guidance.
+    resources:
+      limits:
+        nvidia.com/gpu: 8
+    annotations: {}
+    nodeSelector: {}
+    tolerations:
+      - operator: "Exists"
+        key: nvidia.com/gpu
+
+      - operator: "Exists"
+        key: cloud.google.com/impending-node-termination
+    affinity: {}
+    # Ray container security context.
+    securityContext:
+      privileged: true
+    # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+    # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+    volumes:
+      - name: log-volume
+        emptyDir: {}
+      - name: shared-memory
+        emptyDir:
+          medium: "Memory"
+          sizeLimit: 250Gi
+      - name: ray-tmp
+        emptyDir:
+          medium: "Memory"
+      # - name: fluentbit-config-volume
+      #   configMap:
+      #     name: "crankshaw-mantaray-alloc1-fluentbit-config"
+      - name: nvidia-install-dir-host
+        hostPath:
+          path: /home/kubernetes/bin/nvidia
+      - name: tcpx-nccl-plugin-volume
+        emptyDir: {}
+      - name: tcpxo-nccl-plugin-volume
+        emptyDir: {}
+      - name: fastrak-nccl-plugin-volume
+        emptyDir: {}
+      - name: dmabuf
+        hostPath:
+          path: /dev/dmabuf_import_helper
+          type: CharDevice
+      - name: tcpx-socket
+        emptyDir:
+          medium: "Memory"
+    volumeMounts:
+      - mountPath: /tmp/ray
+        name: log-volume
+      - name: shared-memory
+        mountPath: /dev/shm
+      - name: nvidia-install-dir-host
+        mountPath: /usr/local/nvidia
+      - name: tcpx-nccl-plugin-volume
+        mountPath: /var/lib/tcpx
+      - name: tcpxo-nccl-plugin-volume
+        mountPath: /var/lib/tcpxo
+      - name: fastrak-nccl-plugin-volume
+        mountPath: /var/lib/fastrak
+      - name: dmabuf
+        mountPath: /dev/dmabuf_import_helper
+    command:
+      - "ldconfig /usr/local/nvidia/lib64/ &&"
+      - "ldconfig -p | grep libcuda | sed 's/^/  /' &&"
+      - "export LD_LIBRARY_PATH=\"/var/lib/tcpxo/lib64:$LD_LIBRARY_PATH\" && "
+      - "apt-get install -y sudo"
+    initContainers:
+      - name: nccl-plugin-installer
+        imagePullPolicy: Always
+        image: "us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/nccl-plugin-gpudirecttcpx-dev:v1.0.3"
+        volumeMounts:
+        # Some of these may be unused based on NCCL plugin version
+        - name: tcpx-nccl-plugin-volume
+          mountPath: /var/lib/tcpx
+        - name: tcpxo-nccl-plugin-volume
+          mountPath: /var/lib/tcpxo
+        - name: fastrak-nccl-plugin-volume
+          mountPath: /var/lib/fastrak
+        args: ['install', '--install-nccl']
+    # sidecarContainers specifies additional containers to attach to the Ray pod.
+    # Follows standard K8s container spec.
+    sidecarContainers:
+      - name: "rxdm-sidecar"
+        # From https://source.corp.google.com/piper///depot/google3/cloud/cluster/supercomputer/validation/configs/astrophel_qualified_versions.textpb
+        image: "us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/tcpgpudmarxd-dev:v1.0.9"
+        imagePullPolicy: Always
+        #restartPolicy: OnFailure
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: tcpx-socket
+          mountPath: /run/tcpx
+        - name: dmabuf
+          mountPath: /dev/dmabuf_import_helper
+        - name: nvidia-install-dir-host
+          mountPath: "/usr/local/nvidia"
+        env:
+        - name: LD_LIBRARY_PATH
+          value: /usr/local/nvidia/lib64
+        args: ['--num_hops=2', '--num_nics=8', '--uid=', '--alsologtostderr']
+
+  worker-grp-1:
+    disabled: false
+    replicas: 2
+    minReplicas: 2
+    maxReplicas: 2
+    labels: {}
+    serviceAccountName: ""
+    rayStartParams:
+      resources: '"{\"$RAY_GROUP\": 1, \"group_index-$RAY_GROUP_INDEX\": 1}"'
+    # containerEnv specifies environment variables for the Ray container,
+    # Follows standard K8s container env schema.
+    containerEnv:
+      - name: RAY_GROUP
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.labels['ray_group']
+            # fieldPath: metadata.labels[\'ray.io\/group\']
+      - name: RAY_GROUP_INDEX
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.labels['ray_group_index']
+
+      - name: NCCL_FASTRAK_CTRL_DEV
+        value: "eth0"
+      - name: NCCL_FASTRAK_IFNAME
+        value: "eth1,eth2,eth3,eth4,eth5,eth6,eth7,eth8"
+      - name: NCCL_SOCKET_IFNAME
+        value: "eth0"
+      - name: NCCL_CROSS_NIC
+        value: "0"
+      - name: NCCL_ALGO
+        value: "Ring,Tree"
+      - name: NCCL_PROTO
+        value: "Simple"
+      - name: NCCL_MIN_NCHANNELS
+        value: "4"
+      - name: NCCL_TUNER_PLUGIN
+        value: "libnccl- name:tuner.so"
+      - name: NCCL_TUNER_CONFIG_PATH
+        value: "/usr/local/tcpxo/lib64/a3plus_tuner_config.textproto"
+      - name: NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE
+        value: "/usr/local/tcpxo/lib64/a3plus_guest_config.textproto"
+      - name: NCCL_DYNAMIC_CHUNK_SIZE
+        value: "524288"
+      - name: NCCL_P2P_NET_CHUNKSIZE
+        value: "524288"
+      - name: NCCL_P2P_PCI_CHUNKSIZE
+        value: "524288"
+      - name: NCCL_P2P_NVL_CHUNKSIZE
+        value: "1048576"
+      - name: NCCL_FASTRAK_NUM_FLOWS
+        value: "2"
+      - name: NCCL_FASTRAK_USE_SNAP
+        value: "1"
+      - name: NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS
+        value: "600000"
+      - name: NCCL_FASTRAK_ENABLE_CONTROL_CHANNEL
+        value: "0"
+      - name: NCCL_BUFFSIZE
+        value: "8388608"
+      - name: CUDA_VISIBLE_DEVICES
+        value: "0,1,2,3,4,5,6,7"
+      - name: NCCL_NET_GDR_LEVEL
+        value: "PIX"
+      - name: NCCL_FASTRAK_ENABLE_HOTPATH_LOGGING
+        value: "0"
+      - name: NCCL_FASTRAK_USE_LLCM
+        value: "1"
+      - name: NCCL_NVLS_ENABLE
+        value: "0"
+      - name: "RAY_worker_register_timeout_seconds"
+        value: "120"
+
+    envFrom: []
+        # - secretRef:
+        #     name: my-env-secret
+    # ports optionally allows specifying ports for the Ray container.
+    # ports: []
+    # resource requests and limits for the Ray head container.
+    # Modify as needed for your application.
+    # Note that the resources in this example are much too small for production;
+    # we don't recommend allocating less than 8G memory for a Ray pod in production.
+    # Ray pods should be sized to take up entire K8s nodes when possible.
+    # Always set CPU and memory limits for Ray pods.
+    # It is usually best to set requests equal to limits.
+    # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+    # for further guidance.
+    resources:
+      limits:
+        nvidia.com/gpu: 8
+    annotations: {}
+    nodeSelector: {}
+    tolerations:
+      - operator: "Exists"
+        key: nvidia.com/gpu
+
+      - operator: "Exists"
+        key: cloud.google.com/impending-node-termination
+    affinity: {}
+    # Ray container security context.
+    securityContext:
+      privileged: true
+    # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+    # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+    volumes:
+      - name: log-volume
+        emptyDir: {}
+      - name: shared-memory
+        emptyDir:
+          medium: "Memory"
+          sizeLimit: 250Gi
+      - name: ray-tmp
+        emptyDir:
+          medium: "Memory"
+      # - name: fluentbit-config-volume
+      #   configMap:
+      #     name: "crankshaw-mantaray-alloc1-fluentbit-config"
+      - name: nvidia-install-dir-host
+        hostPath:
+          path: /home/kubernetes/bin/nvidia
+      - name: tcpx-nccl-plugin-volume
+        emptyDir: {}
+      - name: tcpxo-nccl-plugin-volume
+        emptyDir: {}
+      - name: fastrak-nccl-plugin-volume
+        emptyDir: {}
+      - name: dmabuf
+        hostPath:
+          path: /dev/dmabuf_import_helper
+          type: CharDevice
+      - name: tcpx-socket
+        emptyDir:
+          medium: "Memory"
+    volumeMounts:
+      - mountPath: /tmp/ray
+        name: log-volume
+      - name: shared-memory
+        mountPath: /dev/shm
+      - name: nvidia-install-dir-host
+        mountPath: /usr/local/nvidia
+      - name: tcpx-nccl-plugin-volume
+        mountPath: /var/lib/tcpx
+      - name: tcpxo-nccl-plugin-volume
+        mountPath: /var/lib/tcpxo
+      - name: fastrak-nccl-plugin-volume
+        mountPath: /var/lib/fastrak
+      - name: dmabuf
+        mountPath: /dev/dmabuf_import_helper
+    command:
+      - "ldconfig /usr/local/nvidia/lib64/ &&"
+      - "ldconfig -p | grep libcuda | sed 's/^/  /' &&"
+      - "export LD_LIBRARY_PATH=\"/var/lib/tcpxo/lib64:$LD_LIBRARY_PATH\" && "
+      - "apt-get install -y sudo"
+    initContainers:
+      - name: nccl-plugin-installer
+        imagePullPolicy: Always
+        image: "us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/nccl-plugin-gpudirecttcpx-dev:v1.0.3"
+        volumeMounts:
+        # Some of these may be unused based on NCCL plugin version
+        - name: tcpx-nccl-plugin-volume
+          mountPath: /var/lib/tcpx
+        - name: tcpxo-nccl-plugin-volume
+          mountPath: /var/lib/tcpxo
+        - name: fastrak-nccl-plugin-volume
+          mountPath: /var/lib/fastrak
+        args: ['install', '--install-nccl']
+    # sidecarContainers specifies additional containers to attach to the Ray pod.
+    # Follows standard K8s container spec.
+    sidecarContainers:
+      - name: "rxdm-sidecar"
+        # From https://source.corp.google.com/piper///depot/google3/cloud/cluster/supercomputer/validation/configs/astrophel_qualified_versions.textpb
+        image: "us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/tcpgpudmarxd-dev:v1.0.9"
+        imagePullPolicy: Always
+        #restartPolicy: OnFailure
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: tcpx-socket
+          mountPath: /run/tcpx
+        - name: dmabuf
+          mountPath: /dev/dmabuf_import_helper
+        - name: nvidia-install-dir-host
+          mountPath: "/usr/local/nvidia"
+        env:
+        - name: LD_LIBRARY_PATH
+          value: /usr/local/nvidia/lib64
+        args: ['--num_hops=2', '--num_nics=8', '--uid=', '--alsologtostderr']
+
+# Configuration for Head's Kubernetes Service
+service:
+  # This is optional, and the default is ClusterIP.
+  type: ClusterIP

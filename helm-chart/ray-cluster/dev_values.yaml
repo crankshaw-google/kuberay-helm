@@ -242,134 +242,134 @@ additionalWorkerGroups:
     command: []
     args: []
 
-  worker-grp-1:
-    disabled: false
-    replicas: 4
-    minReplicas: 4
-    maxReplicas: 4
-    labels: {}
-    serviceAccountName: ""
-    rayStartParams:
-      resources: '"{\"$RAY_GROUP\": 1, \"group_index-$RAY_GROUP_INDEX\": 1}"'
-    # containerEnv specifies environment variables for the Ray container,
-    # Follows standard K8s container env schema.
-    containerEnv:
-      - name: RAY_GROUP
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.labels['ray_group']
-            # fieldPath: metadata.labels[\'ray.io\/group\']
-      - name: RAY_GROUP_INDEX
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.labels['ray_group_index']
-
-      # - name: EXAMPLE_ENV
-      #   value: "1"
-    envFrom: []
-        # - secretRef:
-        #     name: my-env-secret
-    # ports optionally allows specifying ports for the Ray container.
-    # ports: []
-    # resource requests and limits for the Ray head container.
-    # Modify as needed for your application.
-    # Note that the resources in this example are much too small for production;
-    # we don't recommend allocating less than 8G memory for a Ray pod in production.
-    # Ray pods should be sized to take up entire K8s nodes when possible.
-    # Always set CPU and memory limits for Ray pods.
-    # It is usually best to set requests equal to limits.
-    # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
-    # for further guidance.
-    resources:
-      limits:
-        cpu: 3
-        memory: "12G"
-      requests:
-        cpu: 3
-        memory: "12G"
-    annotations: {}
-    nodeSelector: {}
-    tolerations: []
-    affinity: {}
-    # Ray container security context.
-    securityContext: {}
-    # Optional: The following volumes/volumeMounts configurations are optional but recommended because
-    # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
-    volumes:
-      - name: log-volume
-        emptyDir: {}
-    volumeMounts:
-      - mountPath: /tmp/ray
-        name: log-volume
-    sidecarContainers: []
-    # See docs/guidance/pod-command.md for more details about how to specify
-    # container command for worker Pod.
-    command: []
-    args: []
-  worker-grp-2:
-    disabled: false
-    replicas: 4
-    minReplicas: 4
-    maxReplicas: 4
-    labels: {}
-    serviceAccountName: ""
-    rayStartParams:
-      resources: '"{\"$RAY_GROUP\": 1, \"group_index-$RAY_GROUP_INDEX\": 1}"'
-    # containerEnv specifies environment variables for the Ray container,
-    # Follows standard K8s container env schema.
-    containerEnv:
-      - name: RAY_GROUP
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.labels['ray_group']
-            # fieldPath: metadata.labels[\'ray.io\/group\']
-      - name: RAY_GROUP_INDEX
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.labels['ray_group_index']
-
-      # - name: EXAMPLE_ENV
-      #   value: "1"
-    envFrom: []
-        # - secretRef:
-        #     name: my-env-secret
-    # ports optionally allows specifying ports for the Ray container.
-    # ports: []
-    # resource requests and limits for the Ray head container.
-    # Modify as needed for your application.
-    # Note that the resources in this example are much too small for production;
-    # we don't recommend allocating less than 8G memory for a Ray pod in production.
-    # Ray pods should be sized to take up entire K8s nodes when possible.
-    # Always set CPU and memory limits for Ray pods.
-    # It is usually best to set requests equal to limits.
-    # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
-    # for further guidance.
-    resources:
-      limits:
-        cpu: 3
-        memory: "12G"
-      requests:
-        cpu: 3
-        memory: "12G"
-    annotations: {}
-    nodeSelector: {}
-    tolerations: []
-    affinity: {}
-    # Ray container security context.
-    securityContext: {}
-    # Optional: The following volumes/volumeMounts configurations are optional but recommended because
-    # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
-    volumes:
-      - name: log-volume
-        emptyDir: {}
-    volumeMounts:
-      - mountPath: /tmp/ray
-        name: log-volume
-    sidecarContainers: []
-    # See docs/guidance/pod-command.md for more details about how to specify
-    # container command for worker Pod.
-    command: []
-    args: []
+  # worker-grp-1:
+  #   disabled: false
+  #   replicas: 4
+  #   minReplicas: 4
+  #   maxReplicas: 4
+  #   labels: {}
+  #   serviceAccountName: ""
+  #   rayStartParams:
+  #     resources: '"{\"$RAY_GROUP\": 1, \"group_index-$RAY_GROUP_INDEX\": 1}"'
+  #   # containerEnv specifies environment variables for the Ray container,
+  #   # Follows standard K8s container env schema.
+  #   containerEnv:
+  #     - name: RAY_GROUP
+  #       valueFrom:
+  #         fieldRef:
+  #           fieldPath: metadata.labels['ray_group']
+  #           # fieldPath: metadata.labels[\'ray.io\/group\']
+  #     - name: RAY_GROUP_INDEX
+  #       valueFrom:
+  #         fieldRef:
+  #           fieldPath: metadata.labels['ray_group_index']
+  #
+  #     # - name: EXAMPLE_ENV
+  #     #   value: "1"
+  #   envFrom: []
+  #       # - secretRef:
+  #       #     name: my-env-secret
+  #   # ports optionally allows specifying ports for the Ray container.
+  #   # ports: []
+  #   # resource requests and limits for the Ray head container.
+  #   # Modify as needed for your application.
+  #   # Note that the resources in this example are much too small for production;
+  #   # we don't recommend allocating less than 8G memory for a Ray pod in production.
+  #   # Ray pods should be sized to take up entire K8s nodes when possible.
+  #   # Always set CPU and memory limits for Ray pods.
+  #   # It is usually best to set requests equal to limits.
+  #   # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+  #   # for further guidance.
+  #   resources:
+  #     limits:
+  #       cpu: 3
+  #       memory: "12G"
+  #     requests:
+  #       cpu: 3
+  #       memory: "12G"
+  #   annotations: {}
+  #   nodeSelector: {}
+  #   tolerations: []
+  #   affinity: {}
+  #   # Ray container security context.
+  #   securityContext: {}
+  #   # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+  #   # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+  #   volumes:
+  #     - name: log-volume
+  #       emptyDir: {}
+  #   volumeMounts:
+  #     - mountPath: /tmp/ray
+  #       name: log-volume
+  #   sidecarContainers: []
+  #   # See docs/guidance/pod-command.md for more details about how to specify
+  #   # container command for worker Pod.
+  #   command: []
+  #   args: []
+  # worker-grp-2:
+  #   disabled: false
+  #   replicas: 4
+  #   minReplicas: 4
+  #   maxReplicas: 4
+  #   labels: {}
+  #   serviceAccountName: ""
+  #   rayStartParams:
+  #     resources: '"{\"$RAY_GROUP\": 1, \"group_index-$RAY_GROUP_INDEX\": 1}"'
+  #   # containerEnv specifies environment variables for the Ray container,
+  #   # Follows standard K8s container env schema.
+  #   containerEnv:
+  #     - name: RAY_GROUP
+  #       valueFrom:
+  #         fieldRef:
+  #           fieldPath: metadata.labels['ray_group']
+  #           # fieldPath: metadata.labels[\'ray.io\/group\']
+  #     - name: RAY_GROUP_INDEX
+  #       valueFrom:
+  #         fieldRef:
+  #           fieldPath: metadata.labels['ray_group_index']
+  #
+  #     # - name: EXAMPLE_ENV
+  #     #   value: "1"
+  #   envFrom: []
+  #       # - secretRef:
+  #       #     name: my-env-secret
+  #   # ports optionally allows specifying ports for the Ray container.
+  #   # ports: []
+  #   # resource requests and limits for the Ray head container.
+  #   # Modify as needed for your application.
+  #   # Note that the resources in this example are much too small for production;
+  #   # we don't recommend allocating less than 8G memory for a Ray pod in production.
+  #   # Ray pods should be sized to take up entire K8s nodes when possible.
+  #   # Always set CPU and memory limits for Ray pods.
+  #   # It is usually best to set requests equal to limits.
+  #   # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
+  #   # for further guidance.
+  #   resources:
+  #     limits:
+  #       cpu: 3
+  #       memory: "12G"
+  #     requests:
+  #       cpu: 3
+  #       memory: "12G"
+  #   annotations: {}
+  #   nodeSelector: {}
+  #   tolerations: []
+  #   affinity: {}
+  #   # Ray container security context.
+  #   securityContext: {}
+  #   # Optional: The following volumes/volumeMounts configurations are optional but recommended because
+  #   # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
+  #   volumes:
+  #     - name: log-volume
+  #       emptyDir: {}
+  #   volumeMounts:
+  #     - mountPath: /tmp/ray
+  #       name: log-volume
+  #   sidecarContainers: []
+  #   # See docs/guidance/pod-command.md for more details about how to specify
+  #   # container command for worker Pod.
+  #   command: []
+  #   args: []
 
 # Configuration for Head's Kubernetes Service
 service:
