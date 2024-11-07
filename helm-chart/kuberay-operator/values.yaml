@@ -55,6 +55,10 @@ readinessProbe:
   periodSeconds: 5
   failureThreshold: 5
 
+tolerations:
+  - operator: "Exists"
+    key: "components.gke.io/gke-managed-components"
+
 # Enable customized Kubernetes scheduler integration. If enabled, Ray workloads will be scheduled
 # by the customized scheduler.
 #  * "enabled" is the legacy option and will be deprecated soon.
